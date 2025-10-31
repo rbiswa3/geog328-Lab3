@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8">
+    <title>Geospatial Data Visualization</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    
+    <!-- Mapbox GL JS CSS - MUST BE BEFORE JS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+        }
+
+        #container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            flex: 1;
+        }
+
+        /* Side Panel Styling */
+        #side-panel {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 420px;
+            height: 100vh;
+            background-color: white;
+            box-shadow: -3px 0 10px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            overflow-y: auto;
+            padding: 25px;
+        }
+
+        #side-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #side-panel::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        #side-panel::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .close-btn {
+            display: none;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #999;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        h2 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 26px;
+            border-bottom: 3px solid #FF6B6B;
+            padding-bottom: 12px;
+        }
+
+        .info-box {
+            background-color: #ecf0f1;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #555;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .layer-toggle {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+
+        .layer-toggle input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            margin-right: 10px;
+            accent-color: #FF6B6B;
+        }
+
+        .layer-toggle label {
+            cursor: pointer;
+            font-size: 14px;
+            color: #555;
+            margin: 0;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px 15px;
+            margin: 10px 0;
+            background-color: #FF6B6B;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #E74C3C;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* Table Styling */
+        .table-section {
+            margin-top: 20px;
+        }
+
+        .table-section h3 {
+            font-size: 14px;
+            color: #2c3e50;
+            margin: 15px 0 10px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #FF6B6B;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border-spacing: 0;
+            font-size: 13px;
+        }
+
+        th {
+            background-color: #FF6B6B;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #f0f0f0;
+        }
+
+        /* Mobile Toggle Button */
+        #toggle-panel-btn {
+            display: none;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            background-color: #FF6B6B;
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 101;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        #toggle-panel-btn:hover {
+            background-color: #E74C3C;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            #side-panel {
+                position: fixed;
+                right: -420px;
+                transition: right 0.3s ease;
+                width: 85vw;
+                max-width: 420px;
+            }
+
+            #side-panel.active {
+                right: 0;
+            }
+
+            #toggle-panel-btn {
+                display: block;
+            }
+
+            .close-btn {
+                display: block;
+            }
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="map"></div>
+        
+        <div id="side-panel">
+            <button class="close-btn" onclick="togglePanel()">✕</button>
+            
+            <h2>🗺️ Data Map</h2>
+            
+            <div class="info-box">
+                <strong>Interactive Map:</strong> Toggle layers to show/hide datasets. Sort data to organize by value.
+            </div>
+
+            <!-- Layer Controls -->
+            <div class="layer-toggle">
+                <input type="checkbox" id="layer1-toggle" checked onchange="toggleLayer('layer1')">
+                <label for="layer1-toggle">📍 Dataset 1 (Cities)</label>
+            </div>
+            <div class="layer-toggle">
+                <input type="checkbox" id="layer2-toggle" checked onchange="toggleLayer('layer2')">
+                <label for="layer2-toggle">🗺️ Dataset 2 (Regions)</label>
+            </div>
+
+            <button onclick="sortTable()">📊 Sort by Value</button>
+
+            <!-- Data Table -->
+            <div class="table-section">
+                <h3>📋 Dataset Details</h3>
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <button id="toggle-panel-btn" onclick="togglePanel()">☰</button>
+    </div>
+
+    <!-- Mapbox GL JS - LOAD AFTER CSS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+    <script>
+        console.log('Script started');
+
+        // ==========================================
+        // CONFIGURATION - REPLACE THIS TOKEN!
+        // ==========================================
+        mapboxgl.accessToken = 'pk.eyJ1IjoicmtiMjAwMyIsImEiOiJjbWhlYnltNGMwY29vMm1wdW1jdmpvZDFlIn0.mji11FpfUgfAqaPrJaanQA';
+
+        if (mapboxgl.accessToken === 'pk.eyJ1IjoicmtiMjAwMyIsImEiOiJjbWhlYnltNGMwY29vMm1wdW1jdmpvZDFlIn0.mji11FpfUgfAqaPrJaanQA ') {
+            console.error('❌ ERROR: Mapbox token not set!');
+            console.error('📍 Please replace "YOUR_MAPBOX_ACCESS_TOKEN_HERE" with your actual token on line ~185');
+        } else {
+            console.log('✅ Mapbox token set');
+        }
+
+        // ==========================================
+        // INITIALIZE MAP
+        // ==========================================
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/satellite-v9',
+            center: [-95, 40],
+            zoom: 3.5
+        });
+
+        console.log('Map initialized');
+
+        // ==========================================
+        // DATA STORAGE
+        // ==========================================
+        let dataLayer1 = null;
+        let dataLayer2 = null;
+        let tableData = [];
+
+        // ==========================================
+        // LOAD DATA
+        // ==========================================
+        async function loadData() {
+            console.log('Loading GeoJSON data...');
+            
+            try {
+                // Load dataset 1
+                console.log('Fetching data1.geojson...');
+                const res1 = await fetch('assets/data1.geojson');
+                if (!res1.ok) throw new Error(`Failed to load data1.geojson: ${res1.status}`);
+                dataLayer1 = await res1.json();
+                console.log('✅ Loaded data1:', dataLayer1);
+
+                // Load dataset 2
+                console.log('Fetching data2.geojson...');
+                const res2 = await fetch('assets/data2.geojson');
+                if (!res2.ok) throw new Error(`Failed to load data2.geojson: ${res2.status}`);
+                dataLayer2 = await res2.json();
+                console.log('✅ Loaded data2:', dataLayer2);
+
+                // Extract table data
+                if (dataLayer1.features && Array.isArray(dataLayer1.features)) {
+                    tableData = dataLayer1.features.map(f => ({
+                        id: f.properties.id || '',
+                        name: f.properties.name || 'Unknown',
+                        value: f.properties.value || 0
+                    }));
+                    console.log('Table data extracted:', tableData);
+                }
+
+                // Wait for map to load
+                if (map.isStyleLoaded()) {
+                    console.log('Map style already loaded');
+                    setupMap();
+                } else {
+                    console.log('Waiting for map style to load...');
+                    map.on('load', setupMap);
+                }
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showError('Failed to load GeoJSON files: ' + error.message);
+            }
+        }
+
+        // ==========================================
+        // SETUP MAP LAYERS
+        // ==========================================
+        function setupMap() {
+            console.log('Setting up map layers...');
+
+            // Add Dataset 1 (Points)
+            if (dataLayer1 && dataLayer1.features && dataLayer1.features.length > 0) {
+                console.log('Adding point layer...');
+                map.addSource('data1-source', {
+                    type: 'geojson',
+                    data: dataLayer1
+                });
+
+                map.addLayer({
+                    id: 'layer1',
+                    type: 'circle',
+                    source: 'data1-source',
+                    paint: {
+                        'circle-radius': 8,
+                        'circle-color': '#1E90FF',
+                        'circle-opacity': 0.8,
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#ffffff'
+                    }
+                });
+
+                map.on('mouseenter', 'layer1', () => {
+                    map.getCanvas().style.cursor = 'pointer';
+                });
+                map.on('mouseleave', 'layer1', () => {
+                    map.getCanvas().style.cursor = '';
+                });
+
+                console.log('✅ Point layer added');
+            }
+
+            // Add Dataset 2 (Polygons)
+            if (dataLayer2 && dataLayer2.features && dataLayer2.features.length > 0) {
+                console.log('Adding polygon layer...');
+                const geomType = dataLayer2.features[0].geometry.type;
+                const isPolygon = geomType === 'Polygon' || geomType === 'MultiPolygon';
+
+                map.addSource('data2-source', {
+                    type: 'geojson',
+                    data: dataLayer2
+                });
+
+                if (isPolygon) {
+                    map.addLayer({
+                        id: 'layer2',
+                        type: 'fill',
+                        source: 'data2-source',
+                        paint: {
+                            'fill-color': '#FFA500',
+                            'fill-opacity': 0.5
+                        }
+                    });
+
+                    map.addLayer({
+                        id: 'layer2-stroke',
+                        type: 'line',
+                        source: 'data2-source',
+                        paint: {
+                            'line-color': '#FF8C00',
+                            'line-width': 2
+                        }
+                    });
+                } else {
+                    map.addLayer({
+                        id: 'layer2',
+                        type: 'line',
+                        source: 'data2-source',
+                        paint: {
+                            'line-color': '#228B22',
+                            'line-width': 2
+                        }
+                    });
+                }
+
+                console.log('✅ Polygon layer added');
+            }
+
+            generateTable();
+            setupResponsive();
+            console.log('Map setup complete!');
+        }
+
+        // ==========================================
+        // TABLE FUNCTIONS
+        // ==========================================
+        function generateTable() {
+            console.log('Generating table...');
+            const tbody = document.querySelector('#data-table tbody');
+            tbody.innerHTML = '';
+
+            tableData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${row.id}</td><td>${row.name}</td><td>${row.value}</td>`;
+                tbody.appendChild(tr);
+            });
+
+            console.log('✅ Table generated');
+        }
+
+        function sortTable() {
+            console.log('Sorting table...');
+            tableData.sort((a, b) => parseFloat(b.value) - parseFloat(a.value));
+            generateTable();
+        }
+
+        // ==========================================
+        // LAYER TOGGLE
+        // ==========================================
+        function toggleLayer(layerId) {
+            const visibility = map.getLayoutProperty(layerId, 'visibility');
+            const newVis = visibility === 'none' ? 'visible' : 'none';
+            map.setLayoutProperty(layerId, 'visibility', newVis);
+
+            if (layerId === 'layer2' && map.getLayer('layer2-stroke')) {
+                map.setLayoutProperty('layer2-stroke', 'visibility', newVis);
+            }
+
+            console.log(`Layer ${layerId}: ${newVis}`);
+        }
+
+        // ==========================================
+        // RESPONSIVE
+        // ==========================================
+        function togglePanel() {
+            document.getElementById('side-panel').classList.toggle('active');
+        }
+
+        function setupResponsive() {
+            map.on('click', () => {
+                if (window.innerWidth <= 1024) {
+                    document.getElementById('side-panel').classList.remove('active');
+                }
+            });
+
+            window.addEventListener('resize', () => {
+                const panel = document.getElementById('side-panel');
+                if (window.innerWidth > 1024) {
+                    panel.classList.remove('active');
+                }
+            });
+        }
+
+        // ==========================================
+        // ERROR DISPLAY
+        // ==========================================
+        function showError(msg) {
+            const div = document.createElement('div');
+            div.className = 'error';
+            div.textContent = msg;
+            document.getElementById('side-panel').insertBefore(div, document.querySelector('h2').nextSibling);
+        }
+
+        // ==========================================
+        // START APPLICATION
+        // ==========================================
+        console.log('Starting application...');
+        loadData();
+    </script>
+</body>
+</html>
